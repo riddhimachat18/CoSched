@@ -1,13 +1,13 @@
 // shared_array.c
 // Two or more threads repeatedly read/write a shared array.
-// Usage: ./shared_array &lt;num_threads&gt; &lt;array_mb&gt; &lt;duration_seconds&gt;
+// Usage: ./shared_array <num_threads> <array_mb> <duration_seconds>
 #define _GNU_SOURCE
-#include &lt;pthread.h&gt;
-#include &lt;stdio.h&gt;
-#include &lt;stdlib.h&gt;
-#include &lt;string.h&gt;
-#include &lt;time.h&gt;
-#include &lt;stdint.h&gt;
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <stdint.h>
 #define CACHE_LINE 64
 typedef struct {
 volatile uint64_t *array;
@@ -21,26 +21,26 @@ void *worker(void *arg)
 thread_arg_t *a = (thread_arg_t *)arg;
 struct timespec start, now;
 uint64_t ops = 0;
-clock_gettime(CLOCK_MONOTONIC, &amp;start);
+clock_gettime(CLOCK_MONOTONIC, &start);
 while (1) {
-clock_gettime(CLOCK_MONOTONIC, &amp;now);
+clock_gettime(CLOCK_MONOTONIC, &now);
 double elapsed = (now.tv_sec - start.tv_sec)
 + (now.tv_nsec - start.tv_nsec) / 1e9;
-if (elapsed &gt;= a-&gt;duration_sec) break;
+if (elapsed >= a->duration_sec) break;
 // Stride access pattern to stress LLC
-for (size_t i = 0; i &lt; a-&gt;len; i += CACHE_LINE / sizeof(uint64_t)) {
-a-&gt;array[i] += (uint64_t)a-&gt;thread_id; // read + write
+for (size_t i = 0; i < a->len; i += CACHE_LINE / sizeof(uint64_t)) {
+a->array[i] += (uint64_t)a->thread_id; // read + write
 ops++;
 }
 }
-a-&gt;ops_completed = ops;
+a->ops_completed = ops;
 return NULL;
 
 }
 int main(int argc, char *argv[])
 {
 if (argc != 4) {
-fprintf(stderr, &quot;Usage: %s &lt;threads&gt; &lt;array_mb&gt; &lt;seconds&gt;\n&quot;,
+fprintf(stderr, "Usage: %s <threads> <array_mb> <seconds>\n",
 argv[0]);
 return 1;
 }
@@ -53,18 +53,18 @@ sizeof(uint64_t));
 memset((void *)arr, 0, len * sizeof(uint64_t));
 pthread_t *tids = malloc(nthreads * sizeof(pthread_t));
 thread_arg_t *args = malloc(nthreads * sizeof(thread_arg_t));
-for (int i = 0; i &lt; nthreads; i++) {
+for (int i = 0; i < nthreads; i++) {
 args[i] = (thread_arg_t){ .array = arr, .len = len,
 .thread_id = i,
 .duration_sec = duration };
-pthread_create(&amp;tids[i], NULL, worker, &amp;args[i]);
+pthread_create(&tids[i], NULL, worker, &args[i]);
 }
 uint64_t total_ops = 0;
-for (int i = 0; i &lt; nthreads; i++) {
+for (int i = 0; i < nthreads; i++) {
 pthread_join(tids[i], NULL);
 total_ops += args[i].ops_completed;
 }
-printf(&quot;threads=%d array_mb=%zu duration=%ds total_ops=%lu\n&quot;,
+printf("threads=%d array_mb=%zu duration=%ds total_ops=%lu\n",
 nthreads, array_mb, duration, total_ops);
 free(tids); free(args); free((void *)arr);
 return 0;

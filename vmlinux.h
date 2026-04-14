@@ -21896,7 +21896,8 @@ enum mddev_flags {
 	MD_HAS_MULTIPLE_PPLS = 7,
 	MD_NOT_READY = 8,
 	MD_BROKEN = 9,
-	MD_DELETED = 10,
+	MD_DO_DELETE = 10,
+	MD_DELETED = 11,
 };
 
 enum mddev_sb_flags {
@@ -25849,6 +25850,12 @@ enum refcount_saturation_type {
 	REFCOUNT_DEC_LEAK = 4,
 };
 
+enum reftype {
+	REF_NS = 0,
+	REF_PROXY = 1,
+	REF_RAWDATA = 2,
+};
+
 enum reg_arg_type {
 	SRC_OP = 0,
 	DST_OP = 1,
@@ -27016,6 +27023,7 @@ enum scx_rq_flags {
 	SCX_RQ_BAL_KEEP = 8,
 	SCX_RQ_BYPASSING = 16,
 	SCX_RQ_CLK_VALID = 32,
+	SCX_RQ_BAL_CB_PENDING = 64,
 	SCX_RQ_IN_WAKEUP = 65536,
 	SCX_RQ_IN_BALANCE = 131072,
 };
@@ -35908,6 +35916,11 @@ struct aa_caps {
 	kernel_cap_t extended;
 };
 
+struct aa_common_ref {
+	struct kref count;
+	enum reftype reftype;
+};
+
 struct rhash_head {
 	struct rhash_head *next;
 };
@@ -35954,7 +35967,7 @@ struct aa_proxy;
 struct aa_ruleset;
 
 struct aa_label {
-	struct kref count;
+	struct aa_common_ref count;
 	struct rb_node node;
 	struct callback_head rcu;
 	struct aa_proxy *proxy;
@@ -36023,7 +36036,8 @@ struct aa_load_ent {
 };
 
 struct aa_loaddata {
-	struct kref count;
+	struct aa_common_ref count;
+	struct kref pcount;
 	struct list_head list;
 	struct work_struct work;
 	struct dentry *dents[6];
@@ -36157,7 +36171,7 @@ struct aa_profile {
 };
 
 struct aa_proxy {
-	struct kref count;
+	struct aa_common_ref count;
 	struct aa_label *label;
 };
 
@@ -59566,6 +59580,12 @@ struct cpci_hp_controller_ops {
 	int (*check_irq)(void *);
 };
 
+struct cper_arm_ctx_info {
+	u16 version;
+	u16 type;
+	u32 size;
+};
+
 struct cper_arm_err_info {
 	u8 version;
 	u8 length;
@@ -61561,6 +61581,15 @@ struct cred_label {
 	struct aa_label *label;
 };
 
+struct cred_security_struct {
+	u32 osid;
+	u32 sid;
+	u32 exec_sid;
+	u32 create_sid;
+	u32 keycreate_sid;
+	u32 sockcreate_sid;
+};
+
 struct crng {
 	u8 key[32];
 	long unsigned int generation;
@@ -62855,6 +62884,7 @@ struct dbc_port {
 	struct list_head write_pool;
 	unsigned int tx_boundary;
 	bool registered;
+	bool tx_running;
 };
 
 struct dbc_regs {
@@ -63062,7 +63092,6 @@ struct io_stats_per_prio {
 };
 
 struct dd_per_prio {
-	struct list_head dispatch;
 	struct rb_root sort_list[2];
 	struct list_head fifo_list[2];
 	sector_t latest_pos[2];
@@ -63114,6 +63143,7 @@ struct ddebug_table {
 };
 
 struct deadline_data {
+	struct list_head dispatch;
 	struct dd_per_prio per_prio[3];
 	enum dd_data_dir last_dir;
 	unsigned int batching;
@@ -90267,14 +90297,14 @@ struct insn_live_regs {
 
 struct instance_attribute {
 	struct attribute attr;
-	ssize_t (*show)(struct edac_device_instance *, char *);
-	ssize_t (*store)(struct edac_device_instance *, const char *, size_t);
+	ssize_t (*show)(struct edac_pci_ctl_info *, char *);
+	ssize_t (*store)(struct edac_pci_ctl_info *, const char *, size_t);
 };
 
 struct instance_attribute___2 {
 	struct attribute attr;
-	ssize_t (*show)(struct edac_pci_ctl_info *, char *);
-	ssize_t (*store)(struct edac_pci_ctl_info *, const char *, size_t);
+	ssize_t (*show)(struct edac_device_instance *, char *);
+	ssize_t (*store)(struct edac_device_instance *, const char *, size_t);
 };
 
 union intcapxt {
@@ -90576,8 +90606,8 @@ struct pinctrl_desc {
 };
 
 struct intel_pinctrl_context {
-	struct intel_pad_context___3 *pads;
-	struct intel_community_context *communities;
+	struct intel_pad_context___2 *pads;
+	struct intel_community_context___2 *communities;
 };
 
 struct intel_pinctrl_soc_data;
@@ -90596,8 +90626,8 @@ struct intel_pinctrl {
 };
 
 struct intel_pinctrl_context___2 {
-	struct intel_pad_context___2 *pads;
-	struct intel_community_context___2 *communities;
+	struct intel_pad_context___3 *pads;
+	struct intel_community_context *communities;
 };
 
 struct intel_pinctrl___2 {
@@ -105467,6 +105497,7 @@ struct mptcp_pm_add_entry {
 	u8 retrans_times;
 	struct timer_list add_timer;
 	struct mptcp_sock *sock;
+	struct callback_head rcu;
 };
 
 struct mptcp_pm_addr_entry {
@@ -105558,6 +105589,7 @@ struct mptcp_subflow_context {
 			u64 remote_key;
 			u64 idsn;
 			u64 map_seq;
+			u64 rcv_wnd_sent;
 			u32 snd_isn;
 			u32 token;
 			u32 rel_write_seq;
@@ -105618,6 +105650,7 @@ struct mptcp_subflow_context {
 			u64 remote_key;
 			u64 idsn;
 			u64 map_seq;
+			u64 rcv_wnd_sent;
 			u32 snd_isn;
 			u32 token;
 			u32 rel_write_seq;
@@ -111648,6 +111681,7 @@ struct nfs_server {
 	atomic_long_t writeback;
 	unsigned int write_congested;
 	unsigned int flags;
+	unsigned int automount_inherit;
 	unsigned int caps;
 	__u64 fattr_valid;
 	unsigned int rsize;
@@ -127782,6 +127816,11 @@ struct scx_init_task_args {
 	struct cgroup *cgroup;
 };
 
+struct scx_kick_pseqs {
+	struct callback_head rcu;
+	long unsigned int seqs[0];
+};
+
 struct scx_sched_pcpu;
 
 struct scx_sched {
@@ -134944,12 +134983,6 @@ struct task_numa_env {
 };
 
 struct task_security_struct {
-	u32 osid;
-	u32 sid;
-	u32 exec_sid;
-	u32 create_sid;
-	u32 keycreate_sid;
-	u32 sockcreate_sid;
 	struct {
 		u32 sid;
 		u32 seqno;
@@ -138990,7 +139023,14 @@ struct trace_event_data_offsets_amd_pstate_epp_perf {};
 
 struct trace_event_data_offsets_amd_pstate_perf {};
 
-struct trace_event_data_offsets_arm_event {};
+struct trace_event_data_offsets_arm_event {
+	u32 pei_buf;
+	const void *pei_buf_ptr_;
+	u32 ctx_buf;
+	const void *ctx_buf_ptr_;
+	u32 oem_buf;
+	const void *oem_buf_ptr_;
+};
 
 struct trace_event_data_offsets_ata_bmdma_status {};
 
@@ -141067,6 +141107,14 @@ struct trace_event_raw_arm_event {
 	u32 running_state;
 	u32 psci_state;
 	u8 affinity;
+	u32 pei_len;
+	u32 __data_loc_pei_buf;
+	u32 ctx_len;
+	u32 __data_loc_ctx_buf;
+	u32 oem_len;
+	u32 __data_loc_oem_buf;
+	u8 sev;
+	int cpu;
 	char __data[0];
 };
 
@@ -150205,6 +150253,8 @@ struct usb_gadget {
 	enum usb_ssp_rate ssp_rate;
 	enum usb_ssp_rate max_ssp_rate;
 	enum usb_device_state state;
+	spinlock_t state_lock;
+	bool teardown;
 	const char *name;
 	struct device dev;
 	unsigned int isoch_delay;
@@ -158842,14 +158892,9 @@ struct xsd_errors {
 	const char *errstring;
 };
 
-struct xsk_addr_head {
+struct xsk_addrs {
 	u32 num_descs;
-	struct list_head addrs_list;
-};
-
-struct xsk_addr_node {
-	u64 addr;
-	struct list_head addr_node;
+	u64 addrs[18];
 };
 
 struct xsk_buff_pool {
@@ -159854,7 +159899,7 @@ typedef void (*btf_trace_amd_pstate_epp_perf)(void *, unsigned int, u8, u8, u8, 
 
 typedef void (*btf_trace_amd_pstate_perf)(void *, u8, u8, u8, u64, u64, u64, u64, unsigned int, bool);
 
-typedef void (*btf_trace_arm_event)(void *, const struct cper_sec_proc_arm *);
+typedef void (*btf_trace_arm_event)(void *, const struct cper_sec_proc_arm *, const u8 *, const u32, const u8 *, const u32, const u8 *, const u32, u8, int);
 
 typedef void (*btf_trace_ata_bmdma_setup)(void *, struct ata_port *, const struct ata_taskfile *, unsigned int);
 

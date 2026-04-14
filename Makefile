@@ -1,8 +1,9 @@
 CLANG ?= clang
 BPFTOOL ?= bpftool
 CC ?= gcc
-BPF_FLAGS = -g -O2 -target bpf -I$(HOME)/scx-src/scheds/include -I$(CURDIR)
-CFLAGS = -g -O2 -I$(HOME)/scx-src/scheds/include -I$(CURDIR)
+# Suppress errors from compat.bpf.h struct instantiation on older kernels
+BPF_FLAGS = -g -O2 -target bpf -I$(HOME)/scx/scheds/include -I$(CURDIR) -fno-strict-aliasing -Wno-error
+CFLAGS = -g -O2 -I$(HOME)/scx/scheds/include -I$(CURDIR)
 
 all: vmlinux.h cosched
 

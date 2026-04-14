@@ -1,13 +1,11 @@
 // cosched.bpf.c - Cache-collocated scheduler using sched_ext
-#include "vmlinux.h"
-#include <scx/common.bpf.h>
+#include <scx/scheds/include/scx/common.bpf.h>
 #include "cosched.h"
+#include "vmlinux.h"
 
 char _license[] SEC("license") = "GPL";
 
 #define VRUNTIME_THRESHOLD 5000000ULL
-
-extern const int nr_cpu_ids __ksym;
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -34,7 +32,7 @@ s32 BPF_STRUCT_OPS(cosched_select_cpu,
 	llc_start = get_llc_domain_start(prev_cpu);
 
 	bpf_for(cpu, llc_start, llc_start + 4) {
-		if (cpu >= nr_cpu_ids)
+		if (cpu >= MAX_CPUS)
 			break;
 		if (scx_bpf_test_and_clear_cpu_idle(cpu))
 			return cpu;
@@ -42,7 +40,7 @@ s32 BPF_STRUCT_OPS(cosched_select_cpu,
 
 	bpf_for(cpu, llc_start, llc_start + 4) {
 		u64 *mm_ptr;
-		if (cpu >= nr_cpu_ids)
+		if (cpu >= MAX_CPUS)
 			break;
 		mm_ptr = bpf_map_lookup_percpu_elem(&running_mm, &key, cpu);
 		if (mm_ptr && *mm_ptr == p_mm && p_mm != 0)
@@ -58,7 +56,7 @@ s32 BPF_STRUCT_OPS(cosched_select_cpu,
 
 void BPF_STRUCT_OPS(cosched_enqueue, struct task_struct *p, u64 enq_flags)
 {
-	scx_bpf_dsq_insert(p, SCX_DSQ_GLOBAL, SCX_SLICE_DFL, enq_flags);
+	scx_bpf_dsq_insert_vtime(p, SCX_DSQ_LOCAL, SCX_SLICE_DFL, 0, enq_flags);
 }
 
 void BPF_STRUCT_OPS(cosched_running, struct task_struct *p)
@@ -85,7 +83,8 @@ void BPF_STRUCT_OPS(cosched_exit, struct scx_exit_info *ei)
 	/* exit info logging omitted */
 }
 
-SCX_OPS_DEFINE(cosched_ops,
+SEC(".struct_ops")
+struct sched_ext_ops cosched_ops = {
 	.select_cpu	= (void *)cosched_select_cpu,
 	.enqueue	= (void *)cosched_enqueue,
 	.running	= (void *)cosched_running,
@@ -93,4 +92,4 @@ SCX_OPS_DEFINE(cosched_ops,
 	.init		= (void *)cosched_init,
 	.exit		= (void *)cosched_exit,
 	.name		= "cosched"
-);
+};
